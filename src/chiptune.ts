@@ -101,6 +101,11 @@ export const SFX: Record<SfxKey, (s: Synth, t: number) => void> = {
   sfx_land: (s, t) => noise(s, t, 0.12, 0.18, 'lowpass', 900, 200),
   sfx_deposit: (s, t) => arp(s, t, ['G5', 'C6', 'E6', 'G6'], 0.05, 'triangle', 0.3, 0.25),
   sfx_levelup: (s, t) => arp(s, t, ['C5', 'E5', 'G5', 'C6', 'G5', 'C6'], 0.09, 'square', 0.16, 0.4),
+  sfx_warn: (s, t) => arp(s, t, ['E3', 'D#3', 'E3', 'D#3', 'E3', 'B2'], 0.14, 'triangle', 0.35, 0.5),
+  sfx_frenzy: (s, t) => {
+    arp(s, t, ['C4', 'C5', 'G4', 'C5', 'E5', 'G5', 'C6'], 0.06, 'sawtooth', 0.14, 0.35);
+    noise(s, t, 0.4, 0.2, 'highpass', 800, 3000);
+  },
 };
 
 // ───────────────────────── 音樂 ─────────────────────────

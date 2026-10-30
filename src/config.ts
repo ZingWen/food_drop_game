@@ -80,6 +80,52 @@ export const JUMP = {
   speedUpPerLevel: 0.05, // 每升一級，跳出的水平速度 +5%
 };
 
+/**
+ * 瘋狂掉落：每隔 everySeconds 秒發生一次，依序使用 events 裡的設定。
+ * 想加新的瘋狂掉落，在 events 加一項就好（例如只掉牛排、只掉炸彈）。
+ */
+export const FRENZY = {
+  everySeconds: 40, // 每幾秒發生一次（第 1 次在 0:40、第 2 次在 1:20…）
+  warnSeconds: 10, // 發生前幾秒開始提示
+  warnMessage: '好像快發生什麼事情了...',
+  loop: true, // events 用完之後：true 從頭再來一輪，false 就不再發生
+  events: [
+    {
+      name: '食物大暴雨！',
+      foods: 'all', // 'all' 表示全部食物，或列出要掉的種類，例如 ['steak', 'normal']
+      duration: 8, // 持續幾秒
+      interval: 0.15, // 每隔幾秒跳下一個
+      maxOnField: 16, // 場上最多同時幾個
+      missHurts: false, // 沒接到牛排會不會扣愛心
+    },
+    {
+      name: '番茄大進擊！',
+      foods: ['tomato'],
+      duration: 8,
+      interval: 0.15,
+      maxOnField: 16,
+      missHurts: false,
+    },
+    {
+      name: '金蘋果大豐收！',
+      foods: ['golden'],
+      duration: 8,
+      interval: 0.15,
+      maxOnField: 16,
+      missHurts: false,
+    },
+  ] as FrenzyEvent[],
+};
+
+export interface FrenzyEvent {
+  name: string;
+  foods: 'all' | FoodId[];
+  duration: number;
+  interval: number;
+  maxOnField: number;
+  missHurts: boolean;
+}
+
 export type FoodId = 'steak' | 'normal' | 'golden' | 'pork' | 'rotten' | 'tomato' | 'bomb';
 
 export interface FoodDef {
@@ -156,7 +202,9 @@ export type SfxKey =
   | 'sfx_full' // 籃子滿了
   | 'sfx_land' // 食物掉到地上
   | 'sfx_deposit' // 回巢卸貨
-  | 'sfx_levelup'; // 升級
+  | 'sfx_levelup' // 升級
+  | 'sfx_warn' // 瘋狂掉落前的預告
+  | 'sfx_frenzy'; // 瘋狂掉落開始
 
 export const AUDIO = {
   musicVolume: 0.45,
@@ -169,6 +217,9 @@ export const AUDIO = {
  */
 export const AUDIO_FILES: Partial<Record<MusicKey | SfxKey, string>> = {};
 
+/** 主選單左上角的 LOGO（路徑相對於 public/）；size 是顯示的寬高 */
+export const LOGO = { file: 'crow.png', size: 55 };
+
 /** 烏鴉 sprite sheet（拍翅動畫，每格 128×128，橫排）。null 表示用暫代圖 */
 export const CROW_SHEET_FILE: string | null = null;
 
@@ -177,3 +228,10 @@ export const CROW_SHEET_FILE: string | null = null;
  * 右邊 128px 和烏鴉的格子對齊，左邊多 48px 給披風尾端；脖子在 (132, 48)
  */
 export const CAPE_SHEET_FILE: string | null = null;
+
+/** 鴉鴉榜（排行榜，存在這台裝置上） */
+export const LEADERBOARD = {
+  title: '鴉鴉榜',
+  nameMaxLength: 10, // 名稱最多幾個字
+  rows: 10, // 榜上顯示幾名
+};

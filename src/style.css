@@ -12,6 +12,7 @@ body {
 }
 
 #game {
+  position: relative;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -43,4 +44,93 @@ body {
 @keyframes rotate-hint {
   0%, 20% { transform: rotate(0deg); }
   60%, 100% { transform: rotate(-90deg); }
+}
+
+/* 開局前的名稱輸入框（和遊戲裡的 RPG 視窗同風格） */
+#name-dialog {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: "Cubic11", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+  color: #ffffff;
+}
+
+#name-dialog.show {
+  display: flex;
+}
+
+#name-dialog .rpg-window {
+  width: min(480px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 20px 28px 24px;
+  background: linear-gradient(#3a58c8, #141f66);
+  border: 4px solid #f4f4f4;
+  border-radius: 4px;
+  box-shadow: 0 0 0 3px #000000;
+  text-align: center;
+  text-shadow: 2px 2px 0 #000000;
+}
+
+#name-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  font-weight: normal;
+  color: #ffe066;
+}
+
+#name-dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 24px;
+  color: #ffffff;
+  background: #0a0f3a;
+  border: 3px solid #9fd8ff;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#name-dialog input:focus {
+  border-color: #ffe066;
+}
+
+#name-dialog p {
+  margin: 12px 0 18px;
+  font-size: 16px;
+  color: #c8d8ff;
+}
+
+#name-dialog .buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+#name-dialog button {
+  min-width: 120px;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 22px;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 #000000;
+  background: #141f66;
+  border: 3px solid #f4f4f4;
+  cursor: pointer;
+}
+
+#name-dialog button.primary {
+  color: #ffe066;
+  background: #3a58c8;
+}
+
+#name-dialog button:hover,
+#name-dialog button:focus-visible {
+  border-color: #ffe066;
+  outline: none;
 }
