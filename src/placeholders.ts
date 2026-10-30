@@ -425,6 +425,23 @@ function pauseIcon(): Grid {
   return g;
 }
 
+function trophyIcon(): Grid {
+  const g = makeGrid(13, 12);
+  stamp(
+    g,
+    ['kkkkkkkkk', 'kyyyyyyyk', 'kyyyyyyyk', '.kyyyyyk.', '..kyyyk..', '...kyk...', '...kyk...', '..kyyyk..', '.kkkkkkk.'],
+    { k: '#b8860b', y: '#ffd84a' },
+    2,
+    1,
+  );
+  // 把手
+  stamp(g, ['yy.........yy', 'y...........y', '.y.........y.'], { y: '#ffd84a' }, 0, 2);
+  set(g, 4, 2, '#fff6c0');
+  set(g, 4, 3, '#fff6c0');
+  outline(g, '#000000');
+  return g;
+}
+
 function speaker(on: boolean): Grid {
   const g = makeGrid(13, 10);
   stamp(g, ['...k', '..kk', 'kkkk', 'kkkk', 'kkkk', '..kk', '...k'], { k: '#ffffff' }, 1, 1);
@@ -486,4 +503,5 @@ export function makePlaceholders(scene: Phaser.Scene) {
   render(scene, 'icon_sound_on', speaker(true), 3);
   render(scene, 'icon_sound_off', speaker(false), 3);
   render(scene, 'icon_pause', pauseIcon(), 3);
+  render(scene, 'icon_trophy', trophyIcon(), 3);
 }

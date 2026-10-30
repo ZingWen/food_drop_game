@@ -1,10 +1,19 @@
 import Phaser from 'phaser';
 import { playMusic, playSfx } from '../audio';
-import { BASKET, BUILDING, CROW, DEBUG, HEARTS, JUMP, NEST, STOCK, WORLD } from '../config';
+import { BASKET, BUILDING, CROW, DEBUG, FRENZY, FrenzyEvent, HEARTS, JUMP, NEST, STOCK, WORLD } from '../config';
 import { Building } from '../objects/Building';
 import { Crow, ITEM_SIZE } from '../objects/Crow';
 import { fitSize, Food, FOOD_RADIUS } from '../objects/Food';
-import { activeLedgeCount, levelAt, maxOnField, pickFood, spawnInterval, stockDecayPerSec } from '../rules';
+import {
+  activeLedgeCount,
+  frenzyAt,
+  frenzyStart,
+  levelAt,
+  maxOnField,
+  pickFood,
+  spawnInterval,
+  stockDecayPerSec,
+} from '../rules';
 import { drawLandscape } from '../scenery';
 import { outlineStyle } from '../ui';
 
@@ -18,6 +27,8 @@ export interface HudState {
   basket: number;
   /** 囤貨度暫停剩下的秒數 */
   freeze: number;
+  /** 瘋狂掉落：預告中（倒數到開始）或進行中（倒數到結束），沒有就是 null */
+  frenzy: { phase: 'warn' | 'active'; name: string; seconds: number } | null;
 }
 
 type Keys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
@@ -49,6 +60,11 @@ export class GameScene extends Phaser.Scene {
   private spawnTimer = 0;
   private fullHintCooldown = 0;
   private over = false;
+  /** 已經開始過幾次瘋狂掉落 */
+  private frenzyCount = 0;
+  private frenzy: FrenzyEvent | null = null;
+  private frenzyLeft = 0;
+  private frenzyWarned = false;
 
   constructor() {
     super('Game');
@@ -66,7 +82,14 @@ export class GameScene extends Phaser.Scene {
       level: this.level,
       basket: this.crow.itemCount,
       freeze: this.stockFreeze,
+      frenzy: this.frenzyHud(),
     };
+  }
+
+  private frenzyHud(): HudState['frenzy'] {
+    if (this.frenzy) return { phase: 'active', name: this.frenzy.name, seconds: this.frenzyLeft };
+    if (!this.frenzyWarned) return null;
+    return { phase: 'warn', name: FRENZY.warnMessage, seconds: frenzyStart(this.frenzyCount) - this.elapsed };
   }
 
   create() {
@@ -81,6 +104,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnTimer = 0.8;
     this.fullHintCooldown = 0;
     this.over = false;
+    this.frenzyCount = 0;
+    this.frenzy = null;
+    this.frenzyLeft = 0;
+    this.frenzyWarned = false;
 
     this.bg = this.add.graphics().setDepth(0);
     this.building = new Building(this);
@@ -167,11 +194,13 @@ export class GameScene extends Phaser.Scene {
       playSfx('sfx_levelup');
     }
 
+    this.updateFrenzy(dt);
+
     this.crow.update(dt, this.readDirection(), this.drag, this.zone);
     this.fullHintCooldown -= dt;
 
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0 && this.spawnFood()) this.spawnTimer = spawnInterval(this.level);
+    if (this.spawnTimer <= 0 && this.spawnFood()) this.spawnTimer = this.frenzy?.interval ?? spawnInterval(this.level);
 
     for (const food of this.foods) this.updateFood(food, dt);
     this.foods = this.foods.filter((f) => f.state !== 'gone');
@@ -186,16 +215,47 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** 瘋狂掉落：時間到前先預告，時間到就開始，持續 duration 秒 */
+  private updateFrenzy(dt: number) {
+    if (this.frenzy) {
+      this.frenzyLeft -= dt;
+      if (this.frenzyLeft > 0) return;
+      this.frenzy = null;
+      this.spawnTimer = spawnInterval(this.level);
+    }
+
+    const next = frenzyAt(this.frenzyCount);
+    if (!next) return;
+    const start = frenzyStart(this.frenzyCount);
+    if (!this.frenzyWarned && this.elapsed >= start - FRENZY.warnSeconds) {
+      this.frenzyWarned = true;
+      playSfx('sfx_warn');
+    }
+    if (this.elapsed >= start) {
+      this.frenzy = next;
+      this.frenzyLeft = next.duration;
+      this.frenzyCount++;
+      this.frenzyWarned = false;
+      this.spawnTimer = 0;
+      playSfx('sfx_frenzy');
+      this.cameras.main.shake(400, 0.006);
+    }
+  }
+
   private spawnFood(): boolean {
-    if (this.foods.length >= maxOnField(this.level)) return false;
+    const frenzy = this.frenzy;
+    if (this.foods.length >= (frenzy?.maxOnField ?? maxOnField(this.level))) return false;
     const busy = new Set(this.foods.filter((f) => f.state === 'warning').map((f) => f.ledge));
     const free: number[] = [];
-    for (let i = 0; i < activeLedgeCount(this.level); i++) if (!busy.has(i)) free.push(i);
+    const ledges = frenzy ? BUILDING.ledges : activeLedgeCount(this.level);
+    for (let i = 0; i < ledges; i++) if (!busy.has(i)) free.push(i);
     if (free.length === 0) return false;
 
     const ledge = Phaser.Math.RND.pick(free);
     const spot = this.building.foodSpot(ledge);
-    this.foods.push(new Food(this, pickFood(this.level), ledge, spot.x, spot.y, JUMP.warnSeconds));
+    const food = new Food(this, pickFood(this.level, frenzy?.foods), ledge, spot.x, spot.y, JUMP.warnSeconds);
+    if (frenzy && !frenzy.missHurts) food.missHurts = false;
+    this.foods.push(food);
     return true;
   }
 
@@ -280,7 +340,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       playSfx('sfx_land', 0.6);
     }
-    if (food.def.missHeart > 0) this.loseHeart(food.def.missHeart, food.def.missMessage, food.x, food.y - 40);
+    if (food.missHurts && food.def.missHeart > 0) this.loseHeart(food.def.missHeart, food.def.missMessage, food.x, food.y - 40);
   }
 
   private tryDeposit() {

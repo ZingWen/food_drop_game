@@ -1,9 +1,21 @@
 import Phaser from 'phaser';
 import { playMusic, playSfx } from '../audio';
-import { GAME_TITLE } from '../config';
+import { GAME_TITLE, LEADERBOARD, LOGO } from '../config';
+import { lastPlayerName, loadBoard } from '../leaderboard';
+import { askPlayerName } from '../nameDialog';
 import { createCape } from '../objects/Crow';
 import { drawLandscape } from '../scenery';
-import { createSoundButton, drawWindow, iconFit, outlineStyle, textStyle } from '../ui';
+import {
+  BOARD_H,
+  BOARD_W,
+  createIconButton,
+  createLeaderboard,
+  createSoundButton,
+  drawWindow,
+  iconFit,
+  outlineStyle,
+  textStyle,
+} from '../ui';
 
 const RULES: [icons: string[], text: string][] = [
   [['food_steak'], '牛排最重要！沒接到會扣愛心'],
@@ -22,6 +34,10 @@ export class MenuScene extends Phaser.Scene {
   private bg!: Phaser.GameObjects.Graphics;
   private content!: Phaser.GameObjects.Container;
   private soundButton!: Phaser.GameObjects.Container;
+  private logo?: Phaser.GameObjects.Image;
+  private boardButton!: Phaser.GameObjects.Container;
+  private boardLayer!: Phaser.GameObjects.Container;
+  private boardDim!: Phaser.GameObjects.Rectangle;
   private started = false;
 
   constructor() {
@@ -57,12 +73,19 @@ export class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: start, alpha: 0.5, duration: 700, yoyo: true, repeat: -1 });
 
     this.content = this.add.container(0, 0, [title, crow, box, ...rows, controls, start, cursor]);
+    if (this.textures.exists('logo')) {
+      this.logo = this.add.image(0, 0, 'logo').setOrigin(0).setDisplaySize(LOGO.size, LOGO.size);
+    }
     this.soundButton = createSoundButton(this);
+    this.boardButton = createIconButton(this, 'icon_trophy', () => this.showBoard(true), LEADERBOARD.title).button;
+    this.boardDim = this.add.rectangle(0, 0, 10, 10, 0x000000, 0.6).setOrigin(0).setVisible(false);
+    const hint = this.add.text(0, BOARD_H / 2 + 32, '點擊畫面關閉', outlineStyle(24)).setOrigin(0.5);
+    this.boardLayer = this.add.container(0, 0, [hint]).setVisible(false);
     this.layout();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this));
 
-    this.input.keyboard?.once('keydown-SPACE', () => this.startGame());
+    this.input.keyboard?.on('keydown-SPACE', () => this.startGame());
     // 按下和放開都要在這個畫面才算開始（避免從暫停選單點「回到主選單」時，放開滑鼠又直接進遊戲）；
     // 點到靜音按鈕也不算
     let pressed = false;
@@ -81,12 +104,32 @@ export class MenuScene extends Phaser.Scene {
     drawLandscape(this.bg, width, height, height - 70);
     this.bg.fillStyle(0x000000, 0.25).fillRect(0, 0, width, height);
     this.content.setPosition(width / 2, height / 2);
+    this.logo?.setPosition(12, 12);
     this.soundButton.setPosition(width - 12 - 52, 12);
+    this.boardButton.setPosition(width - 12 - 52 - 12 - this.boardButton.getBounds().width, 12);
+    this.boardDim.setSize(width, height);
+    this.boardLayer.setPosition(width / 2, height / 2);
   }
 
-  private startGame() {
+  /** 鴉鴉榜每次打開都重畫，才會是最新的 */
+  private showBoard(show: boolean) {
+    this.boardLayer.getByName('board')?.destroy();
+    if (show) {
+      const panel = createLeaderboard(this, loadBoard(), lastPlayerName() || null);
+      panel.setName('board').setPosition(-BOARD_W / 2, -BOARD_H / 2 - 20);
+      this.boardLayer.add(panel);
+    }
+    this.boardDim.setVisible(show);
+    this.boardLayer.setVisible(show);
+  }
+
+  private async startGame() {
+    // 鴉鴉榜開著的時候，先關掉
+    if (this.boardLayer.visible) return this.showBoard(false);
     if (this.started) return;
     this.started = true;
+    playSfx('sfx_select');
+    await askPlayerName();
     playSfx('sfx_select');
     // 手機：嘗試全螢幕並鎖定橫向（Android 有效；iOS 不支援，會顯示轉向提示）
     if (this.sys.game.device.input.touch && !this.scale.isFullscreen) {

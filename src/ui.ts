@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { isMuted, toggleMute } from './audio';
-import { FONT } from './config';
+import { FONT, LEADERBOARD } from './config';
+import type { BoardEntry } from './leaderboard';
+import { formatTime } from './scenes/UIScene';
 
 /** RPG 風格的共用 UI：藍底白框視窗、像素字樣式、靜音按鈕 */
 
@@ -77,4 +79,39 @@ export function createSoundButton(scene: Phaser.Scene): Phaser.GameObjects.Conta
   };
   scene.input.keyboard?.on('keydown-M', toggle);
   return button;
+}
+
+export const BOARD_W = 440;
+const BOARD_ROW_H = 30;
+export const BOARD_H = 72 + (LEADERBOARD.rows + 1) * BOARD_ROW_H + 16;
+const MEDALS = ['#ffd84a', '#d8e0ec', '#e09a5a'];
+
+/**
+ * 鴉鴉榜視窗（左上角為原點）。highlight 的名稱會標黃；
+ * 如果他排在顯示的名次之外，最後一行會另外列出他的名次
+ */
+export function createLeaderboard(scene: Phaser.Scene, board: BoardEntry[], highlight: string | null) {
+  const parts: Phaser.GameObjects.GameObject[] = [drawWindow(scene.add.graphics(), 0, 0, BOARD_W, BOARD_H)];
+  parts.push(scene.add.text(BOARD_W / 2, 32, `♛ ${LEADERBOARD.title} ♛`, textStyle(36, '#ffe066')).setOrigin(0.5));
+
+  const row = (index: number, slot: number, entry: BoardEntry) => {
+    const y = 72 + slot * BOARD_ROW_H + BOARD_ROW_H / 2;
+    const mine = entry.name === highlight;
+    const color = mine ? '#8cf08c' : (MEDALS[index] ?? '#ffffff');
+    parts.push(scene.add.text(28, y, `${index + 1}.`, textStyle(24, color)).setOrigin(0, 0.5));
+    parts.push(scene.add.text(84, y, entry.name, textStyle(24, color)).setOrigin(0, 0.5));
+    parts.push(scene.add.text(BOARD_W - 28, y, formatTime(entry.time), textStyle(24, color)).setOrigin(1, 0.5));
+    if (mine) parts.push(scene.add.text(14, y, '▶', textStyle(12, color)).setOrigin(0, 0.5));
+  };
+
+  board.slice(0, LEADERBOARD.rows).forEach((e, i) => row(i, i, e));
+  const myIndex = highlight ? board.findIndex((e) => e.name === highlight) : -1;
+  if (myIndex >= LEADERBOARD.rows) row(myIndex, LEADERBOARD.rows, board[myIndex]);
+
+  if (board.length === 0) {
+    parts.push(
+      scene.add.text(BOARD_W / 2, BOARD_H / 2 + 20, '還沒有烏鴉上榜\n快來搶第一！', { ...textStyle(24, '#9fd8ff'), align: 'center' }).setOrigin(0.5),
+    );
+  }
+  return scene.add.container(0, 0, parts);
 }

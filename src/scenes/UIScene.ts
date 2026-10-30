@@ -41,6 +41,7 @@ export class UIScene extends Phaser.Scene {
   private bannerBox!: Phaser.GameObjects.Graphics;
   private bannerText!: Phaser.GameObjects.Text;
   private levelBanner!: Phaser.GameObjects.Text;
+  private frenzyText!: Phaser.GameObjects.Text;
   private splat!: Phaser.GameObjects.Graphics;
 
   constructor() {
@@ -70,6 +71,8 @@ export class UIScene extends Phaser.Scene {
     this.bannerText = this.add.text(0, 0, '', textStyle(48, '#ffb0a8')).setOrigin(0.5);
     this.banner = this.add.container(0, 0, [this.bannerBox, this.bannerText]).setAlpha(0);
     this.levelBanner = this.add.text(0, 0, '', outlineStyle(48, '#ffe066')).setOrigin(0.5).setAlpha(0);
+    this.frenzyText = this.add.text(0, 0, '', outlineStyle(36)).setOrigin(0.5).setVisible(false);
+    this.tweens.add({ targets: this.frenzyText, scale: 1.12, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.createPauseMenu();
 
     const events = this.gameScene.events;
@@ -105,6 +108,7 @@ export class UIScene extends Phaser.Scene {
     this.pauseLayer.setPosition(Math.round(width / 2), Math.round(height / 2));
     this.banner.setPosition(width / 2, Math.round(height * 0.32));
     this.levelBanner.setPosition(width / 2, Math.round(height * 0.2));
+    this.frenzyText.setPosition(width / 2, MARGIN + SMALL_H + 30);
   }
 
   update() {
@@ -116,6 +120,14 @@ export class UIScene extends Phaser.Scene {
     this.stockLabel.setText(s.freeze > 0 ? `暫停 ${Math.ceil(s.freeze)}` : '囤貨度');
     this.stockLabel.setColor(s.freeze > 0 ? '#9fe8ff' : '#ffffff');
     this.drawBar(s.stock / STOCK.max, s.freeze > 0);
+
+    // 瘋狂掉落：預告是紫色倒數，進行中是紅色
+    const f = s.frenzy;
+    this.frenzyText.setVisible(!!f);
+    if (f) {
+      this.frenzyText.setText(`${f.name} ${Math.ceil(f.seconds)}`);
+      this.frenzyText.setColor(f.phase === 'warn' ? '#d8b4ff' : '#ff7a5a');
+    }
   }
 
   /** 像素風的血條：一格一格的 */

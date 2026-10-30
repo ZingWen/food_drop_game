@@ -21,6 +21,8 @@ export class Food {
   prevY = 0;
   /** 被籃子側面彈開後就接不到了 */
   catchable = true;
+  /** 沒接到會不會扣愛心（瘋狂掉落時可以關掉） */
+  missHurts = true;
 
   private warnLeft: number;
   private shake: Phaser.Tweens.Tween;
