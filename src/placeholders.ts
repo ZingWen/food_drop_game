@@ -385,6 +385,62 @@ function nest(): Grid {
   return g;
 }
 
+/** 淺綠色毛毛蟲：身體一節一節波動，頭在右邊（嘴巴對齊烏鴉的籃子掛點），頭上有兩根觸角 */
+function wormFrame(phase: number): Grid {
+  const g = makeGrid(32, 32);
+  const body: Shades = ['#e4fbb8', '#b8ec86', '#84c85a'];
+  const wave = (x: number) => Math.sin(x * 0.55 + phase) * 1.6;
+
+  // 腳（畫在身體前先點，身體會蓋住上半部）
+  for (const x of [6, 10, 14, 18, 22]) stamp(g, ['f', 'f'], { f: '#5f9e3f' }, x, Math.round(21 + wave(x)));
+  for (const x of [4, 8, 12, 16, 20]) blob(g, x + 0.5, 18 + wave(x), 3.4, 3.8, body);
+
+  // 觸角：從頭頂往上，尖端有小圓點，會跟著身體輕輕晃
+  const tip = Math.round(Math.sin(phase) * 1);
+  line(g, 23, 9, 21 + tip, 3, '#5f9e3f');
+  line(g, 27, 9, 29 + tip, 3, '#5f9e3f');
+  stamp(g, ['aa', 'aa'], { a: '#f2d24a' }, 20 + tip, 2);
+  stamp(g, ['aa', 'aa'], { a: '#f2d24a' }, 29 + tip, 2);
+
+  blob(g, 25, 14, 5.2, 5, ['#effdca', '#c6f294', '#94d66a']);
+  // 眼睛、腮紅、微笑
+  stamp(g, ['ww', 'wk'], { w: '#ffffff', k: '#000000' }, 26, 11);
+  stamp(g, ['pp'], { p: '#ffb0a0' }, 23, 15);
+  stamp(g, ['k..k', '.kk.'], { k: '#3f7a2a' }, 26, 15);
+  outline(g, '#3f7a2a');
+  return g;
+}
+
+/** 辦公桌（尺寸和鳥巢一樣）：桌上有螢幕和馬克杯 */
+function desk(): Grid {
+  const g = makeGrid(50, 24);
+  const wood = { l: '#d8a868', b: '#b98448', d: '#7c5228', k: '#3b220d' };
+  // 桌面
+  for (let x = 2; x <= 47; x++) {
+    set(g, x, 9, wood.l);
+    set(g, x, 10, wood.b);
+    set(g, x, 11, wood.d);
+  }
+  // 桌腳和右邊的抽屜櫃
+  for (let y = 12; y < 24; y++) for (let x = 5; x <= 7; x++) set(g, x, y, x === 5 ? wood.b : wood.d);
+  for (let y = 12; y < 24; y++) for (let x = 32; x <= 45; x++) set(g, x, y, wood.b);
+  for (const y of [17, 23]) for (let x = 32; x <= 45; x++) set(g, x, y, wood.d);
+  stamp(g, ['kkkk'], { k: '#ffd84a' }, 37, 14);
+  stamp(g, ['kkkk'], { k: '#ffd84a' }, 37, 20);
+  // 螢幕
+  stamp(
+    g,
+    ['sssssssssss', 'sbbbbbbbbbs', 'sbhhbbbbbbs', 'sbbbbbbbbbs', 'sbbbbbbbbbs', 'sssssssssss', '....sss....', '...sssss...'],
+    { s: '#4a4a5c', b: '#6ccff6', h: '#d8f6ff' },
+    12,
+    1,
+  );
+  // 馬克杯
+  stamp(g, ['www.', 'wwwh', 'www.', 'www.'], { w: '#f4f4f4', h: '#c8c8d8' }, 40, 5);
+  outline(g, '#2a1808');
+  return g;
+}
+
 // ───────────────────────── UI 與特效 ─────────────────────────
 
 function heart(fill: string, shine: string): Grid {
@@ -442,6 +498,33 @@ function trophyIcon(): Grid {
   return g;
 }
 
+function crowIcon(): Grid {
+  const g = makeGrid(13, 12);
+  const body: Shades = ['#6a6ea0', '#44476e', '#2b2d4a'];
+  // 尾巴（往左）、身體、頭
+  line(g, 1, 6, 4, 7, body[1]);
+  line(g, 1, 8, 4, 8, body[2]);
+  blob(g, 6, 7.5, 3.8, 2.8, body);
+  blob(g, 9, 4.5, 2.4, 2.4, body);
+  // 嘴和眼睛
+  stamp(g, ['uu', 'u.'], { u: '#ffd23f' }, 11, 4);
+  set(g, 9, 3, '#ffffff');
+  outline(g, '#000000');
+  return g;
+}
+
+function wormIcon(): Grid {
+  const g = makeGrid(13, 12);
+  const body: Shades = ['#e4fbb8', '#b8ec86', '#84c85a'];
+  for (const x of [2, 5, 8]) blob(g, x + 0.5, 8, 2.2, 2.4, body);
+  blob(g, 10, 6, 2.8, 2.8, body);
+  line(g, 9, 3, 8, 1, '#f2d24a');
+  line(g, 11, 3, 12, 1, '#f2d24a');
+  set(g, 11, 5, '#000000');
+  outline(g, '#000000');
+  return g;
+}
+
 function speaker(on: boolean): Grid {
   const g = makeGrid(13, 10);
   stamp(g, ['...k', '..kk', 'kkkk', 'kkkk', 'kkkk', '..kk', '...k'], { k: '#ffffff' }, 1, 1);
@@ -495,6 +578,21 @@ export function makePlaceholders(scene: Phaser.Scene) {
   render(scene, 'basket_back', basketBack(), BIG_PX);
   render(scene, 'basket_front', basketFront(), BIG_PX);
   render(scene, 'nest', nest(), BIG_PX);
+  render(scene, 'desk', desk(), BIG_PX);
+
+  if (!scene.textures.exists('worm')) {
+    const wormFrames = [0, 1, 2, 3].map((i) => wormFrame((i * Math.PI) / 2));
+    const tex = scene.textures.createCanvas('worm', CROW_FRAME * wormFrames.length, CROW_FRAME);
+    if (tex) {
+      wormFrames.forEach((grid, i) => {
+        paint(tex.getContext(), grid, BIG_PX, i * CROW_FRAME);
+        tex.add(i, 0, i * CROW_FRAME, 0, CROW_FRAME, CROW_FRAME);
+      });
+      tex.refresh();
+    }
+  }
+  render(scene, 'icon_worm', wormIcon(), 3);
+  render(scene, 'icon_crow', crowIcon(), 3);
 
   render(scene, 'heart_full', heart('#e83a4a', '#ffb0b8'), 4);
   render(scene, 'heart_empty', heart('#3a2a40', '#4a3a52'), 4);

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { playMusic } from '../audio';
-import { LEADERBOARD } from '../config';
+import { LEADERBOARD, WORM_MODE } from '../config';
 import { getPlayer, submitScore } from '../leaderboard';
+import { isWormMode } from '../mode';
 import { askPlayerName } from '../nameDialog';
 import { BOARD_H, BOARD_W, createLeaderboard, drawWindow, outlineStyle, textStyle } from '../ui';
 import type { GameOverReason } from './GameScene';
@@ -40,7 +41,7 @@ export class GameOverScene extends Phaser.Scene {
     const top = -BOARD_H / 2 + 20;
     const cx = left + RESULT_W / 2;
 
-    const title = this.add.text(0, top - 56, 'GAME OVER', { ...outlineStyle(72, '#ff5a5a'), strokeThickness: 10 }).setOrigin(0.5);
+    const title = this.add.text(0, top - 56, isWormMode() ? WORM_MODE.gameOverTitle : 'GAME OVER', { ...outlineStyle(72, '#ff5a5a'), strokeThickness: 10 }).setOrigin(0.5);
     const box = drawWindow(this.add.graphics(), left, top, RESULT_W, RESULT_H);
     const who = this.add.text(cx, top + 36, player ?? '訪客', textStyle(24, '#9fd8ff')).setOrigin(0.5);
     const reason = this.add.text(cx, top + 76, REASONS[this.reason], textStyle(24, '#ffb4a2')).setOrigin(0.5);

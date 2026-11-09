@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { BASKET, CROW } from '../config';
+import { BASKET, CROW, WORM_MODE } from '../config';
+import { isWormMode } from '../mode';
 import { CAPE_FRAME_W, CAPE_NECK, CROW_FRAME } from '../placeholders';
 import { fitSize } from './Food';
 
@@ -57,17 +58,27 @@ export class Crow {
   private stunLeft = 0;
   private dirtyLeft = 0;
   private lastRimY = 0;
+  private readonly worm: boolean;
+  /** 籃子掛點：烏鴉叼在嘴上，毛毛蟲頂在背上 */
+  private readonly mount: { x: number; y: number };
+  private dashLeft = 0;
+  private dashCooldown = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
-    this.bird = scene.add.sprite(0, 0, 'crow').play('crow_fly');
+    // 上班一條蟲模式：主角換成毛毛蟲，沒有披風，只能在地上爬
+    const worm = isWormMode();
+    this.worm = worm;
+    this.mount = worm ? WORM_MODE.basket : CROW.beak;
+    this.bird = worm ? scene.add.sprite(0, 0, 'worm').play('worm_wiggle') : scene.add.sprite(0, 0, 'crow').play('crow_fly');
     const [cape, collar] = createCape(scene);
+    if (worm) [cape, collar].forEach((part) => part.setVisible(false));
     this.cape = cape;
     const back = scene.add.image(0, 0, 'basket_back').setOrigin(0.5, 0);
     const front = scene.add.image(0, 0, 'basket_front').setOrigin(0.5, 0);
     this.itemLayer = scene.add.container(0, 0);
     this.basketParts = [back, front];
-    this.basket = scene.add.container(CROW.beak.x, CROW.beak.y, [back, this.itemLayer, front]);
+    this.basket = scene.add.container(this.mount.x, this.mount.y, [back, this.itemLayer, front]);
     this.stars = scene.add.image(70, -40, 'fx_stun').setVisible(false);
     this.root = scene.add.container(x, y, [this.cape, this.bird, collar, this.basket, this.stars]).setDepth(4);
     this.lastRimY = this.rim().y;
@@ -78,6 +89,8 @@ export class Crow {
   get itemCount() { return this.items.length; }
   get isFull() { return this.items.length >= BASKET.capacity; }
   get isStunned() { return this.stunLeft > 0; }
+  /** 瘋狂蠕動還要冷卻幾秒 */
+  get dashCooldownLeft() { return this.dashCooldown; }
   /** 上一幀的籃口高度（判斷食物是否「從上方」穿過籃口用） */
   get previousRimY() { return this.lastRimY; }
 
@@ -89,8 +102,8 @@ export class Crow {
   /** 籃口在世界座標的位置 */
   rim(): Rim {
     return {
-      x: this.root.x + this.facing * CROW.beak.x,
-      y: this.root.y + CROW.beak.y + BASKET.rimY,
+      x: this.root.x + this.facing * this.mount.x,
+      y: this.root.y + this.mount.y + BASKET.rimY,
       halfWidth: BASKET.rimHalfWidth,
     };
   }
@@ -103,8 +116,17 @@ export class Crow {
     this.lastRimY = this.rim().y;
     const load = this.items.length / BASKET.capacity;
     const maxSpeed = CROW.speed * (1 - BASKET.fullSpeedPenalty * load);
+    if (this.dashCooldown > 0) this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+    if (this.worm) dir.y = drag.y = 0;
 
-    if (this.stunLeft > 0) {
+    if (this.dashLeft > 0) {
+      // 瘋狂蠕動：朝面向的方向暴衝，結束時速度收回正常
+      const step = Math.min(this.dashLeft, dt);
+      this.dashLeft -= step;
+      drag.x = 0;
+      this.root.x += this.facing * (WORM_MODE.dash.distance / WORM_MODE.dash.seconds) * step;
+      this.vx = this.facing * (this.dashLeft > 0 ? WORM_MODE.dash.distance / WORM_MODE.dash.seconds : maxSpeed);
+    } else if (this.stunLeft > 0) {
       // 暈眩：不能控制，慢慢往下飄
       this.stunLeft -= dt;
       this.vx *= 0.92;
@@ -143,7 +165,9 @@ export class Crow {
     const sway = this.isStunned
       ? Math.sin(t * 14) * 0.5
       : Phaser.Math.Clamp(((this.vx * this.facing) / CROW.speed) * 0.35, -0.4, 0.4);
-    this.basket.rotation += (sway - this.basket.rotation) * Math.min(1, dt * 8);
+    // 毛毛蟲的籃子頂在背上，只輕輕晃
+    const target = this.worm ? sway * 0.25 : sway;
+    this.basket.rotation += (target - this.basket.rotation) * Math.min(1, dt * 8);
 
     this.bird.anims.timeScale = this.isStunned ? 0.3 : 1 + Math.hypot(this.vx, this.vy) / CROW.speed;
     // 飛越快，披風飄越快、越往後揚
@@ -169,6 +193,15 @@ export class Crow {
 
   stun(seconds: number) {
     this.stunLeft = Math.max(this.stunLeft, seconds);
+    this.dashLeft = 0;
+  }
+
+  /** 瘋狂蠕動（只有毛毛蟲能用）；冷卻中或暈眩時回傳 false */
+  dash(): boolean {
+    if (!this.worm || this.dashCooldown > 0 || this.isStunned) return false;
+    this.dashLeft = WORM_MODE.dash.seconds;
+    this.dashCooldown = WORM_MODE.dash.cooldown;
+    return true;
   }
 
   makeDirty(seconds: number) {
@@ -186,8 +219,8 @@ export class Crow {
 
     // 接到時籃子往下一沉
     this.scene.tweens.killTweensOf(this.basket);
-    this.basket.y = CROW.beak.y + 8;
-    this.scene.tweens.add({ targets: this.basket, y: CROW.beak.y, duration: 220, ease: 'Back.easeOut' });
+    this.basket.y = this.mount.y + 8;
+    this.scene.tweens.add({ targets: this.basket, y: this.mount.y, duration: 220, ease: 'Back.easeOut' });
   }
 
   /** 卸貨：取出籃子裡全部的食物 */

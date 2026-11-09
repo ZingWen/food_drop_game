@@ -42,6 +42,13 @@ export class BootScene extends Phaser.Scene {
       repeat: -1,
     });
 
+    this.anims.create({
+      key: 'worm_wiggle',
+      frames: this.anims.generateFrameNumbers('worm', { start: 0, end: this.textures.get('worm').frameTotal - 2 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+
     this.scene.start('Menu');
   }
 }

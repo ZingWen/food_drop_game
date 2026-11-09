@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { isMuted, toggleMute } from './audio';
+import { isMuted, playSfx, toggleMute } from './audio';
 import { FONT, LEADERBOARD } from './config';
 import type { BoardEntry } from './leaderboard';
+import { askPlayerName } from './nameDialog';
 import { formatTime } from './scenes/UIScene';
 
 /** RPG 風格的共用 UI：藍底白框視窗、像素字樣式、靜音按鈕 */
@@ -53,10 +54,10 @@ export function iconFit(img: Phaser.GameObjects.Image, size: number) {
 }
 
 /** 圖示按鈕，可以在圖示右邊加文字。回傳的 container 要自己決定位置 */
-export function createIconButton(scene: Phaser.Scene, texture: string, onClick: () => void, label?: string) {
+export function createIconButton(scene: Phaser.Scene, texture: string, onClick: () => void, label?: string, minWidth = 0) {
   const size = 52;
   const text = label ? scene.add.text(size - 4, size / 2, label, textStyle(24)).setOrigin(0, 0.5) : null;
-  const width = text ? Math.ceil(text.width / 4) * 4 + size + 12 : size;
+  const width = Math.max(minWidth, text ? Math.ceil(text.width / 4) * 4 + size + 12 : size);
   const bg = drawWindow(scene.add.graphics(), 0, 0, width, size);
   const icon = scene.add.image(size / 2, size / 2, texture);
   // 用一個左上角對齊的 zone 接點擊（container 的點擊範圍以中心為原點，容易對不準）
@@ -66,7 +67,7 @@ export function createIconButton(scene: Phaser.Scene, texture: string, onClick: 
     onClick();
   });
   const parts: Phaser.GameObjects.GameObject[] = [bg, icon, ...(text ? [text] : []), hit];
-  return { button: scene.add.container(0, 0, parts), icon };
+  return { button: scene.add.container(0, 0, parts), icon, text };
 }
 
 /** 靜音按鈕（也可以按 M 鍵） */
@@ -79,6 +80,18 @@ export function createSoundButton(scene: Phaser.Scene): Phaser.GameObjects.Conta
   };
   scene.input.keyboard?.on('keydown-M', toggle);
   return button;
+}
+
+/** 問完玩家名稱後進遊戲 */
+export async function askNameAndPlay(scene: Phaser.Scene) {
+  await askPlayerName();
+  playSfx('sfx_select');
+  // 手機：嘗試全螢幕並鎖定橫向（Android 有效；iOS 不支援，會顯示轉向提示）
+  if (scene.sys.game.device.input.touch && !scene.scale.isFullscreen) {
+    scene.scale.startFullscreen();
+    scene.scale.lockOrientation('landscape');
+  }
+  scene.scene.start('Game');
 }
 
 export const BOARD_W = 440;

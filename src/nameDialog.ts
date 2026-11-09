@@ -1,5 +1,6 @@
-import { LEADERBOARD } from './config';
+import { LEADERBOARD, WORM_MODE } from './config';
 import { lastPlayerName, rememberName, setPlayer } from './leaderboard';
+import { isWormMode } from './mode';
 
 /**
  * 開局前問玩家名稱。用 HTML 輸入框（手機鍵盤、中文輸入法才能正常用），
@@ -37,6 +38,7 @@ export function askPlayerName(): Promise<void> {
   const form = root.querySelector('form')!;
   const input = root.querySelector('input')!;
   const guest = root.querySelector<HTMLButtonElement>('[data-guest]')!;
+  root.querySelector('h2')!.textContent = isWormMode() ? WORM_MODE.namePrompt : '你是哪隻烏鴉？';
   input.value = lastPlayerName();
   root.classList.add('show');
   const openedAt = performance.now();

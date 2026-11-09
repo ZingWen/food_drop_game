@@ -6,6 +6,7 @@ import { GameOverScene } from './scenes/GameOverScene';
 import { GameScene } from './scenes/GameScene';
 import { MenuScene } from './scenes/MenuScene';
 import { UIScene } from './scenes/UIScene';
+import { WormIntroScene } from './scenes/WormIntroScene';
 
 function startGame() {
   const game = new Phaser.Game({
@@ -14,6 +15,8 @@ function startGame() {
     backgroundColor: '#141f66',
     // 像素風：放大時保持銳利、座標取整數
     pixelArt: true,
+    // 手機要能一指拖曳、一指按技能
+    input: { activePointers: 2 },
     scale: {
       // EXPAND：保持 1280×720 的基準，螢幕比較方或比較寬時，多出來的部分顯示更多畫面而不是加黑邊
       mode: Phaser.Scale.EXPAND,
@@ -21,7 +24,7 @@ function startGame() {
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
     },
-    scene: [BootScene, MenuScene, GameScene, UIScene, GameOverScene],
+    scene: [BootScene, MenuScene, WormIntroScene, GameScene, UIScene, GameOverScene],
   });
 
   // 手機直拿：顯示「請轉橫」並暫停遊戲

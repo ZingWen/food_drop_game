@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { playMusic, playSfx } from '../audio';
-import { GAME_TITLE, LEADERBOARD, LOGO } from '../config';
-import { lastPlayerName, loadBoard } from '../leaderboard';
-import { askPlayerName } from '../nameDialog';
+import { GAME_TITLE, LEADERBOARD, LOGO, WORM_MODE } from '../config';
+import { isWormUnlocked, lastPlayerName, loadBoard } from '../leaderboard';
+import { isWormMode, setWormMode } from '../mode';
 import { createCape } from '../objects/Crow';
 import { drawLandscape } from '../scenery';
 import {
+  askNameAndPlay,
   BOARD_H,
   BOARD_W,
   createIconButton,
@@ -29,10 +30,21 @@ const RULES: [icons: string[], text: string][] = [
 const BOX_W = 800;
 const ROW_H = 48;
 const BOX_H = RULES.length * ROW_H + 40;
+const CONTROLS = '操作：方向鍵 / WASD，或在畫面上拖曳　　M：靜音';
+const DEPOSIT_RULE = 1; // RULES 裡「回巢」那一列，切換模式時要換內容
+const TOGGLE_W = 320;
 
 export class MenuScene extends Phaser.Scene {
   private bg!: Phaser.GameObjects.Graphics;
   private content!: Phaser.GameObjects.Container;
+  private title!: Phaser.GameObjects.Text;
+  private crow!: Phaser.GameObjects.Container;
+  private worm!: Phaser.GameObjects.Sprite;
+  private depositIcon!: Phaser.GameObjects.Image;
+  private depositText!: Phaser.GameObjects.Text;
+  private controls!: Phaser.GameObjects.Text;
+  private toggleText!: Phaser.GameObjects.Text;
+  private toggleIcon!: Phaser.GameObjects.Image;
   private soundButton!: Phaser.GameObjects.Container;
   private logo?: Phaser.GameObjects.Image;
   private boardButton!: Phaser.GameObjects.Container;
@@ -46,33 +58,50 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.started = false;
+    const wormUnlocked = isWormUnlocked();
+    if (!wormUnlocked) setWormMode(false);
     this.bg = this.add.graphics();
 
-    const title = this.add.text(0, -290, GAME_TITLE, { ...outlineStyle(72, '#ffe066'), strokeThickness: 10 }).setOrigin(0.5);
+    this.title = this.add.text(0, -290, GAME_TITLE, { ...outlineStyle(72, '#ffe066'), strokeThickness: 10 }).setOrigin(0.5);
     const [cape, collar] = createCape(this);
-    const crow = this.add.container(0, -200, [cape, this.add.sprite(0, 0, 'crow').play('crow_fly'), collar]);
-    this.tweens.add({ targets: crow, y: -212, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.crow = this.add.container(0, -200, [cape, this.add.sprite(0, 0, 'crow').play('crow_fly'), collar]);
+    this.worm = this.add.sprite(0, -200, 'worm').play('worm_wiggle').setVisible(false);
+    this.tweens.add({ targets: [this.crow, this.worm], y: -212, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     const top = -140;
     const box = drawWindow(this.add.graphics(), -BOX_W / 2, top, BOX_W, BOX_H);
     const rows: Phaser.GameObjects.GameObject[] = [];
     RULES.forEach(([icons, text], i) => {
       const y = top + 20 + ROW_H * i + ROW_H / 2;
-      icons.forEach((key, k) => rows.push(iconFit(this.add.image(-BOX_W / 2 + 44 + k * 38, y, key), 32)));
-      rows.push(this.add.text(-BOX_W / 2 + 156, y, text, textStyle(24)).setOrigin(0, 0.5));
+      const images = icons.map((key, k) => iconFit(this.add.image(-BOX_W / 2 + 44 + k * 38, y, key), 32));
+      const label = this.add.text(-BOX_W / 2 + 156, y, text, textStyle(24)).setOrigin(0, 0.5);
+      rows.push(...images, label);
+      if (i === DEPOSIT_RULE) [this.depositIcon, this.depositText] = [images[0], label];
     });
 
-    const controls = this.add
-      .text(0, top + BOX_H + 36, '操作：方向鍵 / WASD，或在畫面上拖曳　　M：靜音', outlineStyle(24))
-      .setOrigin(0.5);
-    const start = this.add.text(12, top + BOX_H + 96, '按空白鍵或點擊畫面開始冒險', outlineStyle(36)).setOrigin(0.5);
+    this.controls = this.add.text(0, top + BOX_H + 36, CONTROLS, outlineStyle(24)).setOrigin(0.5);
+    const start = this.add.text(12, top + BOX_H + 84, '按空白鍵或點擊畫面開始冒險', outlineStyle(36)).setOrigin(0.5);
     const cursor = this.add
       .triangle(-start.width / 2 - 16, start.y, 0, 0, 0, 24, 16, 12, 0xffffff)
       .setStrokeStyle(4, 0x000000);
     this.tweens.add({ targets: cursor, x: cursor.x + 8, duration: 350, yoyo: true, repeat: -1 });
     this.tweens.add({ targets: start, alpha: 0.5, duration: 700, yoyo: true, repeat: -1 });
 
-    this.content = this.add.container(0, 0, [title, crow, box, ...rows, controls, start, cursor]);
+    // 模式切換鈕：還沒解鎖時只顯示解鎖條件，按了沒有作用
+    const onToggle = () => (wormUnlocked ? this.toggleWorm() : playSfx('sfx_bounce'));
+    const toggle = createIconButton(this, 'icon_worm', onToggle, WORM_MODE.lockedLabel, TOGGLE_W);
+    toggle.button.setPosition(-TOGGLE_W / 2, top + BOX_H + 112);
+    this.toggleText = toggle.text!;
+    this.toggleIcon = toggle.icon;
+    if (wormUnlocked) {
+      this.input.keyboard?.on('keydown-W', () => this.toggleWorm());
+    } else {
+      toggle.icon.setTint(0x666666);
+      this.toggleText.setColor('#a0a0b8');
+    }
+
+    this.content = this.add.container(0, 0, [this.title, this.crow, this.worm, box, ...rows, this.controls, start, cursor, toggle.button]);
+    if (wormUnlocked) this.applyMode();
     if (this.textures.exists('logo')) {
       this.logo = this.add.image(0, 0, 'logo').setOrigin(0).setDisplaySize(LOGO.size, LOGO.size);
     }
@@ -129,13 +158,30 @@ export class MenuScene extends Phaser.Scene {
     if (this.started) return;
     this.started = true;
     playSfx('sfx_select');
-    await askPlayerName();
+    if (isWormMode()) return this.scene.start('WormIntro');
+    await askNameAndPlay(this);
+  }
+
+  /** 切換烏鴉 / 上班一條蟲，只換封面，不會開始遊戲 */
+  private toggleWorm() {
+    if (this.boardLayer.visible) return this.showBoard(false);
+    if (this.started) return;
+    setWormMode(!isWormMode());
     playSfx('sfx_select');
-    // 手機：嘗試全螢幕並鎖定橫向（Android 有效；iOS 不支援，會顯示轉向提示）
-    if (this.sys.game.device.input.touch && !this.scale.isFullscreen) {
-      this.scale.startFullscreen();
-      this.scale.lockOrientation('landscape');
-    }
-    this.scene.start('Game');
+    this.applyMode();
+    this.tweens.add({ targets: this.title, scale: { from: 0.6, to: 1 }, duration: 300, ease: 'Back.easeOut' });
+  }
+
+  /** 依目前模式更新標題、主角和說明文字 */
+  private applyMode() {
+    const worm = isWormMode();
+    this.title.setText(worm ? WORM_MODE.title : GAME_TITLE).setColor(worm ? '#b8ec86' : '#ffe066');
+    this.crow.setVisible(!worm);
+    this.worm.setVisible(worm);
+    this.toggleText.setText(worm ? WORM_MODE.backLabel : WORM_MODE.buttonLabel);
+    this.toggleIcon.setTexture(worm ? 'icon_crow' : 'icon_worm');
+    this.controls.setText(worm ? WORM_MODE.controls : CONTROLS);
+    this.depositText.setText(worm ? WORM_MODE.depositRule : RULES[DEPOSIT_RULE][1]);
+    iconFit(this.depositIcon.setTexture(worm ? 'desk' : 'nest'), 32);
   }
 }

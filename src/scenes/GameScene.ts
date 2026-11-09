@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { playMusic, playSfx } from '../audio';
-import { BASKET, BUILDING, CROW, DEBUG, FRENZY, FrenzyEvent, HEARTS, JUMP, NEST, STOCK, WORLD } from '../config';
+import { BASKET, BUILDING, CROW, DEBUG, FRENZY, FrenzyEvent, HEARTS, JUMP, NEST, STOCK, WORLD, WORM_MODE } from '../config';
+import { isWormMode } from '../mode';
 import { Building } from '../objects/Building';
 import { Crow, ITEM_SIZE } from '../objects/Crow';
 import { fitSize, Food, FOOD_RADIUS } from '../objects/Food';
@@ -29,9 +30,11 @@ export interface HudState {
   freeze: number;
   /** 瘋狂掉落：預告中（倒數到開始）或進行中（倒數到結束），沒有就是 null */
   frenzy: { phase: 'warn' | 'active'; name: string; seconds: number } | null;
+  /** 瘋狂蠕動剩下的冷卻秒數 */
+  dashCooldown: number;
 }
 
-type Keys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
+type Keys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd' | 'space', Phaser.Input.Keyboard.Key>;
 
 /**
  * 主遊戲。對 UIScene 發出的事件：
@@ -48,7 +51,9 @@ export class GameScene extends Phaser.Scene {
   private keys?: Keys;
 
   private foods: Food[] = [];
-  private drag = { x: 0, y: 0, lastX: 0, lastY: 0 };
+  private drag = { x: 0, y: 0 };
+  /** 每根手指上次的位置（一指拖曳時，另一指可以按技能） */
+  private dragLast = new Map<number, { x: number; y: number }>();
   private zone = new Phaser.Geom.Rectangle();
   private groundY = 0;
 
@@ -83,6 +88,7 @@ export class GameScene extends Phaser.Scene {
       basket: this.crow.itemCount,
       freeze: this.stockFreeze,
       frenzy: this.frenzyHud(),
+      dashCooldown: this.crow.dashCooldownLeft,
     };
   }
 
@@ -95,7 +101,8 @@ export class GameScene extends Phaser.Scene {
   create() {
     // scene.restart 會重用同一個物件，所以狀態要在這裡重設
     this.foods = [];
-    this.drag = { x: 0, y: 0, lastX: 0, lastY: 0 };
+    this.drag = { x: 0, y: 0 };
+    this.dragLast.clear();
     this.stock = STOCK.start;
     this.stockFreeze = 0;
     this.hearts = HEARTS.start;
@@ -111,7 +118,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bg = this.add.graphics().setDepth(0);
     this.building = new Building(this);
-    this.nest = this.add.image(0, 0, 'nest').setOrigin(0.5, 1).setDepth(2);
+    this.nest = this.add.image(0, 0, isWormMode() ? 'desk' : 'nest').setOrigin(0.5, 1).setDepth(2);
     this.crow = new Crow(this, 0, 0);
     this.debugGfx = DEBUG ? this.add.graphics().setDepth(10) : undefined;
 
@@ -128,21 +135,27 @@ export class GameScene extends Phaser.Scene {
 
   private setupInput() {
     this.keys = this.input.keyboard?.addKeys({
-      up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT', w: 'W', a: 'A', s: 'S', d: 'D',
+      up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT', w: 'W', a: 'A', s: 'S', d: 'D', space: 'SPACE',
     }) as Keys | undefined;
 
     // 拖曳是「相對位移」：手指移多少，烏鴉就飛多少，不會瞬移到手指底下
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.drag.lastX = p.x;
-      this.drag.lastY = p.y;
-    });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.dragLast.set(p.id, { x: p.x, y: p.y }));
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.dragLast.delete(p.id));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (!p.isDown) return;
-      this.drag.x += (p.x - this.drag.lastX) * CROW.dragSensitivity;
-      this.drag.y += (p.y - this.drag.lastY) * CROW.dragSensitivity;
-      this.drag.lastX = p.x;
-      this.drag.lastY = p.y;
+      const last = this.dragLast.get(p.id);
+      if (!p.isDown || !last) return;
+      this.drag.x += (p.x - last.x) * CROW.dragSensitivity;
+      this.drag.y += (p.y - last.y) * CROW.dragSensitivity;
+      last.x = p.x;
+      last.y = p.y;
     });
+  }
+
+  /** 瘋狂蠕動：鍵盤和螢幕按鈕都走這裡 */
+  tryDash() {
+    if (this.over || !this.crow.dash()) return;
+    this.floatText(this.crow.x, this.crow.y - 110, `${WORM_MODE.dash.label}！`, '#b8ec86', 24);
+    playSfx('sfx_select');
   }
 
   private readDirection() {
@@ -165,6 +178,10 @@ export class GameScene extends Phaser.Scene {
     const bottom = this.groundY - CROW.zoneBottomAboveGround;
     const right = this.building.left - BUILDING.ledgeDepth - CROW.gapToBuilding - (CROW.beak.x + BASKET.rimHalfWidth);
     this.zone.setTo(CROW.zoneLeft, top, right - CROW.zoneLeft, bottom - top);
+    // 毛毛蟲不會飛：範圍只有地面上的一條線
+    if (isWormMode()) {
+      this.zone.setTo(CROW.zoneLeft, this.groundY - WORM_MODE.feetAboveGround, this.building.left - WORM_MODE.gapToBuilding - CROW.zoneLeft, 0);
+    }
 
     for (const food of this.foods) {
       if (food.state !== 'warning') continue;
@@ -196,6 +213,7 @@ export class GameScene extends Phaser.Scene {
 
     this.updateFrenzy(dt);
 
+    if (this.keys && Phaser.Input.Keyboard.JustDown(this.keys.space)) this.tryDash();
     this.crow.update(dt, this.readDirection(), this.drag, this.zone);
     this.fullHintCooldown -= dt;
 
@@ -387,7 +405,7 @@ export class GameScene extends Phaser.Scene {
   private hintFull(): boolean {
     if (this.fullHintCooldown > 0) return false;
     this.fullHintCooldown = 1.5;
-    this.floatText(this.crow.x, this.crow.y - 70, '籃子滿了！快回巢', '#ffffff', 24);
+    this.floatText(this.crow.x, this.crow.y - 70, isWormMode() ? WORM_MODE.basketFullHint : '籃子滿了！快回巢', '#ffffff', 24);
     playSfx('sfx_full');
     return true;
   }

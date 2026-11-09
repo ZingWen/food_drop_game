@@ -229,9 +229,41 @@ export const CROW_SHEET_FILE: string | null = null;
  */
 export const CAPE_SHEET_FILE: string | null = null;
 
-/** 鴉鴉榜（排行榜，存在這台裝置上） */
+/** 鴉鴉榜（排行榜，存在該裝置上） */
 export const LEADERBOARD = {
-  title: '鴉鴉榜',
+  title: '榜架',
   nameMaxLength: 10, // 名稱最多幾個字
   rows: 10, // 榜上顯示幾名
+};
+
+/** 上班一條蟲模式：鴉鴉榜上有紀錄達到 unlockSeconds 秒就會解鎖 */
+export const WORM_MODE = {
+  unlockSeconds: 180,
+  lockedLabel: '達三分鐘開啟隱藏模式',
+  buttonLabel: '上班一條蟲模式 (W)',
+  backLabel: '切回烏鴉模式 (W)',
+  title: '唔，上班一條蟲',
+  controls: '操作：左右鍵 / AD 或拖曳　空白鍵：瘋狂蠕動　M：靜音',
+  depositRule: '接到的食物要爬回左下角的辦公桌，才會變成存糧',
+  feetAboveGround: 32, // 毛毛蟲中心離地面的高度
+  gapToBuilding: 84, // 毛毛蟲中心和大樓之間至少保持的距離
+  basket: { x: -24, y: -84 }, // 籃子頂在背上，相對毛毛蟲中心的位置
+  dash: {
+    label: '瘋狂蠕動',
+    distance: 260, // 暴衝的距離 (px)
+    seconds: 0.2, // 暴衝花多久
+    cooldown: 10, // 冷卻秒數
+  },
+  // 開場字幕，一行一句，要加減句子直接改這裡
+  intro: [
+    '午休了!',
+    '今天上班午餐吃甚麼?',
+    '希望能吃到好料的...',
+    '帶點吃的回辦公桌上吃吧...',
+  ],
+  charMs: 70, // 字幕每個字出現的間隔
+  crawlMs: 900, // 毛毛蟲每句往前爬的時間
+  namePrompt: '你是哪條蟲？',
+  basketFullHint: '籃子滿了！快回辦公桌',
+  gameOverTitle: '上班就算了還心碎了',
 };

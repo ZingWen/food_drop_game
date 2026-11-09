@@ -1,4 +1,4 @@
-import { LEADERBOARD } from './config';
+import { LEADERBOARD, WORM_MODE } from './config';
 
 /**
  * 鴉鴉榜：每個名稱只留最佳時間，存在這台裝置的 localStorage。
@@ -60,6 +60,11 @@ export function loadBoard(): BoardEntry[] {
   } catch {
     return [];
   }
+}
+
+/** 榜上有破關門檻的紀錄，就解鎖上班一條蟲模式 */
+export function isWormUnlocked(): boolean {
+  return loadBoard().some((e) => e.time >= WORM_MODE.unlockSeconds);
 }
 
 function saveBoard(board: BoardEntry[]) {

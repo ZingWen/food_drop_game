@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { BASKET, HEARTS, STOCK } from '../config';
+import { BASKET, HEARTS, STOCK, WORM_MODE } from '../config';
 import { setAudioPaused } from '../audio';
+import { isWormMode } from '../mode';
 import { createIconButton, createSoundButton, drawWindow, outlineStyle, textStyle } from '../ui';
 import type { GameScene } from './GameScene';
 
@@ -14,6 +15,8 @@ const TIME_W = 220;
 const SMALL_H = 52;
 const PAUSE_W = 360;
 const PAUSE_OPTIONS = ['繼續遊戲', '重新開始', '回到主選單'];
+const DASH_W = 132;
+const DASH_H = 104;
 
 export function formatTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -43,6 +46,7 @@ export class UIScene extends Phaser.Scene {
   private levelBanner!: Phaser.GameObjects.Text;
   private frenzyText!: Phaser.GameObjects.Text;
   private splat!: Phaser.GameObjects.Graphics;
+  private dashButton?: { root: Phaser.GameObjects.Container; icon: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text };
 
   constructor() {
     super('UI');
@@ -73,6 +77,7 @@ export class UIScene extends Phaser.Scene {
     this.levelBanner = this.add.text(0, 0, '', outlineStyle(48, '#ffe066')).setOrigin(0.5).setAlpha(0);
     this.frenzyText = this.add.text(0, 0, '', outlineStyle(36)).setOrigin(0.5).setVisible(false);
     this.tweens.add({ targets: this.frenzyText, scale: 1.12, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.dashButton = isWormMode() ? this.createDashButton() : undefined;
     this.createPauseMenu();
 
     const events = this.gameScene.events;
@@ -109,6 +114,20 @@ export class UIScene extends Phaser.Scene {
     this.banner.setPosition(width / 2, Math.round(height * 0.32));
     this.levelBanner.setPosition(width / 2, Math.round(height * 0.2));
     this.frenzyText.setPosition(width / 2, MARGIN + SMALL_H + 30);
+    this.dashButton?.root.setPosition(width - MARGIN - DASH_W, height - MARGIN - DASH_H);
+  }
+
+  /** 右下角的瘋狂蠕動按鈕，手機靠它放技能；電腦也可以按空白鍵 */
+  private createDashButton() {
+    const bg = drawWindow(this.add.graphics(), 0, 0, DASH_W, DASH_H);
+    const icon = this.add.image(DASH_W / 2, 38, 'icon_worm').setScale(1.5);
+    const label = this.add.text(DASH_W / 2, 80, WORM_MODE.dash.label, textStyle(24)).setOrigin(0.5);
+    const hit = this.add.zone(0, 0, DASH_W, DASH_H).setOrigin(0).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
+      e.stopPropagation();
+      this.gameScene.tryDash();
+    });
+    return { root: this.add.container(0, 0, [bg, icon, label, hit]), icon, label };
   }
 
   update() {
@@ -120,6 +139,13 @@ export class UIScene extends Phaser.Scene {
     this.stockLabel.setText(s.freeze > 0 ? `暫停 ${Math.ceil(s.freeze)}` : '囤貨度');
     this.stockLabel.setColor(s.freeze > 0 ? '#9fe8ff' : '#ffffff');
     this.drawBar(s.stock / STOCK.max, s.freeze > 0);
+
+    if (this.dashButton) {
+      const ready = s.dashCooldown <= 0;
+      this.dashButton.label.setText(ready ? WORM_MODE.dash.label : `${Math.ceil(s.dashCooldown)} 秒`);
+      this.dashButton.label.setColor(ready ? '#b8ec86' : '#a0a0b8');
+      this.dashButton.icon.setAlpha(ready ? 1 : 0.35);
+    }
 
     // 瘋狂掉落：預告是紫色倒數，進行中是紅色
     const f = s.frenzy;
