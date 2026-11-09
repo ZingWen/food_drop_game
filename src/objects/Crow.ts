@@ -115,7 +115,8 @@ export class Crow {
   update(dt: number, dir: { x: number; y: number }, drag: { x: number; y: number }, zone: Phaser.Geom.Rectangle) {
     this.lastRimY = this.rim().y;
     const load = this.items.length / BASKET.capacity;
-    const maxSpeed = CROW.speed * (1 - BASKET.fullSpeedPenalty * load);
+    const baseSpeed = this.worm ? CROW.speed * WORM_MODE.speedRatio : CROW.speed;
+    const maxSpeed = baseSpeed * (1 - BASKET.fullSpeedPenalty * load);
     if (this.dashCooldown > 0) this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     if (this.worm) dir.y = drag.y = 0;
 

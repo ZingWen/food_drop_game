@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { playMusic, playSfx } from '../audio';
 import { BASKET, BUILDING, CROW, DEBUG, FRENZY, FrenzyEvent, HEARTS, JUMP, NEST, STOCK, WORLD, WORM_MODE } from '../config';
+import { isDevMode } from '../leaderboard';
 import { isWormMode } from '../mode';
 import { Building } from '../objects/Building';
 import { Crow, ITEM_SIZE } from '../objects/Crow';
@@ -226,7 +227,7 @@ export class GameScene extends Phaser.Scene {
     this.tryDeposit();
 
     if (this.stockFreeze > 0) this.stockFreeze = Math.max(0, this.stockFreeze - dt);
-    else this.stock -= stockDecayPerSec(this.level) * dt;
+    else if (!isDevMode()) this.stock -= stockDecayPerSec(this.level) * dt;
     if (this.stock <= 0) {
       this.stock = 0;
       this.gameOver('stock');
@@ -388,7 +389,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private loseHeart(amount: number, message: string | undefined, x: number, y: number) {
-    this.hearts = Math.max(0, this.hearts - amount);
+    if (!isDevMode()) this.hearts = Math.max(0, this.hearts - amount);
     if (message) this.events.emit('banner', message);
     this.floatText(x, y, '-1', '#ff5a5a', 36, 'heart_full');
     playSfx('sfx_hurt');

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { BASKET, HEARTS, STOCK, WORM_MODE } from '../config';
+import { BASKET, DEV_MODE, HEARTS, STOCK, WORM_MODE } from '../config';
 import { setAudioPaused } from '../audio';
+import { isDevMode } from '../leaderboard';
 import { isWormMode } from '../mode';
 import { createIconButton, createSoundButton, drawWindow, outlineStyle, textStyle } from '../ui';
 import type { GameScene } from './GameScene';
@@ -16,7 +17,7 @@ const SMALL_H = 52;
 const PAUSE_W = 360;
 const PAUSE_OPTIONS = ['繼續遊戲', '重新開始', '回到主選單'];
 const DASH_W = 132;
-const DASH_H = 104;
+const DASH_H = 116;
 
 export function formatTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -78,6 +79,8 @@ export class UIScene extends Phaser.Scene {
     this.frenzyText = this.add.text(0, 0, '', outlineStyle(36)).setOrigin(0.5).setVisible(false);
     this.tweens.add({ targets: this.frenzyText, scale: 1.12, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.dashButton = isWormMode() ? this.createDashButton() : undefined;
+    // 開發者模式的紅字提示，放在暫停按鈕下面
+    if (isDevMode()) this.add.text(MARGIN, MARGIN + STATUS_H + 12 + 52 + 8, DEV_MODE.label, outlineStyle(24, '#ff3030'));
     this.createPauseMenu();
 
     const events = this.gameScene.events;
@@ -120,14 +123,15 @@ export class UIScene extends Phaser.Scene {
   /** 右下角的瘋狂蠕動按鈕，手機靠它放技能；電腦也可以按空白鍵 */
   private createDashButton() {
     const bg = drawWindow(this.add.graphics(), 0, 0, DASH_W, DASH_H);
-    const icon = this.add.image(DASH_W / 2, 38, 'icon_worm').setScale(1.5);
-    const label = this.add.text(DASH_W / 2, 80, WORM_MODE.dash.label, textStyle(24)).setOrigin(0.5);
+    const icon = this.add.image(DASH_W / 2, 34, 'icon_worm').setScale(1.5);
+    const label = this.add.text(DASH_W / 2, 74, WORM_MODE.dash.label, textStyle(24)).setOrigin(0.5);
+    const key = this.add.text(DASH_W / 2, 98, '(空白鍵)', textStyle(12, '#9fd8ff')).setOrigin(0.5);
     const hit = this.add.zone(0, 0, DASH_W, DASH_H).setOrigin(0).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
       e.stopPropagation();
       this.gameScene.tryDash();
     });
-    return { root: this.add.container(0, 0, [bg, icon, label, hit]), icon, label };
+    return { root: this.add.container(0, 0, [bg, icon, label, key, hit]), icon, label };
   }
 
   update() {

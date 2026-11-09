@@ -1,4 +1,4 @@
-import { LEADERBOARD, WORM_MODE } from './config';
+import { DEV_MODE, LEADERBOARD, WORM_MODE } from './config';
 
 /**
  * 鴉鴉榜：每個名稱只留最佳時間，存在這台裝置的 localStorage。
@@ -62,9 +62,14 @@ export function loadBoard(): BoardEntry[] {
   }
 }
 
-/** 榜上有破關門檻的紀錄，就解鎖上班一條蟲模式 */
+/** 這局的玩家是不是用開發者名稱 */
+export function isDevMode(): boolean {
+  return player === DEV_MODE.playerName;
+}
+
+/** 榜上有破關門檻的紀錄，或上次用開發者名稱，就解鎖上班一條蟲模式 */
 export function isWormUnlocked(): boolean {
-  return loadBoard().some((e) => e.time >= WORM_MODE.unlockSeconds);
+  return lastPlayerName() === DEV_MODE.playerName || loadBoard().some((e) => e.time >= WORM_MODE.unlockSeconds);
 }
 
 function saveBoard(board: BoardEntry[]) {

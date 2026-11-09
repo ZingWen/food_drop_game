@@ -229,14 +229,20 @@ export const CROW_SHEET_FILE: string | null = null;
  */
 export const CAPE_SHEET_FILE: string | null = null;
 
-/** 鴉鴉榜（排行榜，存在該裝置上） */
+/** 榜架（排行榜，存在該裝置上） */
 export const LEADERBOARD = {
   title: '榜架',
   nameMaxLength: 10, // 名稱最多幾個字
   rows: 10, // 榜上顯示幾名
 };
 
-/** 上班一條蟲模式：鴉鴉榜上有紀錄達到 unlockSeconds 秒就會解鎖 */
+/** 開發者模式：名稱輸入 playerName 時愛心無限、囤貨度不減少，並直接解鎖隱藏模式 */
+export const DEV_MODE = {
+  playerName: '1396',
+  label: '開發者模式',
+};
+
+/** 上班一條蟲模式：綁架上有紀錄達到 unlockSeconds 秒就會解鎖 */
 export const WORM_MODE = {
   unlockSeconds: 180,
   lockedLabel: '達三分鐘開啟隱藏模式',
@@ -245,6 +251,7 @@ export const WORM_MODE = {
   title: '唔，上班一條蟲',
   controls: '操作：左右鍵 / AD 或拖曳　空白鍵：瘋狂蠕動　M：靜音',
   depositRule: '接到的食物要爬回左下角的辦公桌，才會變成存糧',
+  speedRatio: 0.8, // 爬行速度是烏鴉飛行速度的幾倍
   feetAboveGround: 32, // 毛毛蟲中心離地面的高度
   gapToBuilding: 84, // 毛毛蟲中心和大樓之間至少保持的距離
   basket: { x: -24, y: -84 }, // 籃子頂在背上，相對毛毛蟲中心的位置
